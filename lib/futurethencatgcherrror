@@ -1,0 +1,232 @@
+import 'package:flutter/material.dart';
+import './product.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+//here we use a mixin "with",  which is used to merge two class
+
+class ProductProvider with ChangeNotifier {
+  List<Product> _items = [
+    Product(
+      id: 'p1',
+      title: 'Red Shirt',
+      description: 'A red shirt - it is pretty red!',
+      price: 29.99,
+      imageUrl:
+          'https://cdn.pixabay.com/photo/2016/10/02/22/17/red-t-shirt-1710578_1280.jpg',
+    ),
+    Product(
+      id: 'p2',
+      title: 'Trousers',
+      description: 'A nice pair of trousers.',
+      price: 59.99,
+      imageUrl:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Trousers%2C_dress_%28AM_1960.022-8%29.jpg/512px-Trousers%2C_dress_%28AM_1960.022-8%29.jpg',
+    ),
+    Product(
+      id: 'p3',
+      title: 'Yellow Scarf',
+      description: 'Warm and cozy - exactly what you need for the winter.',
+      price: 19.99,
+      imageUrl:
+          'https://live.staticflickr.com/4043/4438260868_cc79b3369d_z.jpg',
+    ),
+    Product(
+      id: 'p4',
+      title: 'A Pan',
+      description: 'Prepare any meal you want.',
+      price: 49.99,
+      imageUrl:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Cast-Iron-Pan.jpg/1024px-Cast-Iron-Pan.jpg',
+    ),
+  ];
+
+  //here we are returning a copy of _items which we do by adding [...<name>],spread operator ... and square brackets
+  var showFavorite = false;
+  List<Product> get items {
+    if (showFavorite) {
+      return [
+        ..._items.where((element) => element.isFavorite == true).toList()
+      ];
+    }
+    return [..._items];
+  }
+
+  // List<Product> get showFav {
+  //   return _items.where((element) => element.isFavorite).toList();
+  // }
+
+  Product findById(String id) {
+    return _items.firstWhere((element) => element.id == id);
+  }
+
+  void deleteproduct(String prodid) {
+    _items.removeWhere((element) => element.id == prodid);
+    notifyListeners();
+  }
+
+  Future<void> addproduct(Product product) {
+    //here Uri requires <your domain> section only name of your domain which means https:// in starting
+    //are not required and / in the end is also not required
+    //and  uncodedpath is thefolder in whcih your want to store the data
+    final url = Uri.https(
+        'shop-app-1f3ec-default-rtdb.firebaseio.com', '/products.json');
+    //here we put products in the end
+    //because we wanrt to create a folder with that name and dave the products in
+
+//here we cannot use product directly so we convert it using json.encode
+//which requires dart:convert
+////// returns a future object the future object(response) is a unique cryptic key which firebase generates for us
+    ///       |
+    ///       V
+    return http
+        .post(
+      url,
+      body: json.encode({
+        'title': product.title,
+        'id': product.id,
+        'description': product.description,
+        'imageurl': product.imageUrl,
+        'price': product.price
+      }),
+    )
+        .then(
+      (response) {
+        print(response);
+        print(json.decode(response
+            .body)); //the response needed to be converteed  *IT IS A MAP*
+        final newpro = Product(
+            description: product.description,
+            // id: DateTime.now().toString(),
+            //HERE WE REPLACE THE ID WITH THE RESPONSE PROVIDED BY FIREBASE,it will help if we want to delete or up
+            //update some produts ,because the firebase only knows its own IDS
+            id: json.decode(response.body)['name'],
+            imageUrl: product.imageUrl,
+            price: product.price,
+            title: product.title);
+        _items.add(newpro);
+        //_items.insert(0, newpro)
+        notifyListeners();
+      },
+    ).catchError((error) {
+      print(error);
+      throw error;
+    }); //here then runs only after post have returned a future after its completion,
+    //if the code would have been outside of then then it would have immediatly ran after the post was exceuted
+    //it would not have waited for post returning a future
+  }
+
+  void updateproduct(String id, Product newProduct) {
+    final prodindx = _items.indexWhere((element) => element.id == id);
+    if (prodindx >= 0) {
+      _items[prodindx] = newProduct;
+      notifyListeners();
+    } else {
+      print('no prodcut ');
+    }
+  }
+}
+/////////////////////////////////////////////////////////////
+auith screen aurth card animation
+ Widget build(BuildContext context) {
+    final deviceSize = MediaQuery.of(context).size;
+    return Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        elevation: 8.0,
+        child: AnimatedBuilder(
+          animation: _heightcontroller,
+          //here ther chh(child) will not rerun or rebuild,like in consumer it is static
+          builder: (ctx, ch) => Container(
+              height: _heightcontroller.value.height,
+              //height: _authMode == AuthMode.Signup ? 320 : 260,
+              constraints:
+                  BoxConstraints(minHeight: _heightcontroller.value.height),
+              //(minHeight: _authMode == AuthMode.Signup ? 320 : 260)
+              width: deviceSize.width * 0.75,
+              padding: EdgeInsets.all(16.0),
+              child: ch),
+          child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: <Widget>[
+                    TextFormField(
+                      decoration: InputDecoration(labelText: 'E-Mail'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value.isEmpty || !value.contains('@')) {
+                          return 'Invalid email!';
+                        }
+                        return null;
+                        //return null;
+                      },
+                      onSaved: (value) {
+                        _authData['email'] = value;
+                      },
+                    ),
+                    TextFormField(
+                      decoration: InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                      controller: _passwordController,
+                      validator: (value) {
+                        if (value.isEmpty || value.length < 5) {
+                          return 'Password is too short!';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) {
+                        _authData['password'] = value;
+                      },
+                    ),
+                    if (_authMode == AuthMode.Signup)
+                      TextFormField(
+                        enabled: _authMode == AuthMode.Signup,
+                        decoration:
+                            InputDecoration(labelText: 'Confirm Password'),
+                        obscureText: true,
+                        validator: _authMode == AuthMode.Signup
+                            ? (value) {
+                                if (value != _passwordController.text) {
+                                  return 'Passwords do not match!';
+                                }
+                                return null;
+                              }
+                            : null,
+                      ),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    if (_isLoading)
+                      CircularProgressIndicator()
+                    else
+                      // ignore: deprecated_member_use
+                      RaisedButton(
+                        child: Text(
+                            _authMode == AuthMode.Login ? 'LOGIN' : 'SIGN UP'),
+                        onPressed: _submit,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 30.0, vertical: 8.0),
+                        color: Theme.of(context).primaryColor,
+                        textColor:
+                            Theme.of(context).primaryTextTheme.button.color,
+                      ),
+                    // ignore: deprecated_member_use
+                    FlatButton(
+                      child: Text(
+                          '${_authMode == AuthMode.Login ? 'SIGNUP' : 'LOGIN'} INSTEAD'),
+                      onPressed: _switchAuthMode,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 30.0, vertical: 4),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textColor: Theme.of(context).primaryColor,
+                    ),
+                  ],
+                ),
+              )),
+        ));
+  }
+}
